@@ -51,13 +51,20 @@
 
 ## Ручная сборка
 
-1. Установите .NET 6.0 SDK или новее
-2. Клонируйте репозиторий или скачайте исходный код
-3. Откройте командную строку в папке с проектом
-4. Выполните команду:
-   ```
-   dotnet build -c Release
-   ```
+1. Клонируйте репозиторий к себе на ПК
+2. Установите CMake: https://cmake.org/download/
+3. Установите Visual Studio Build Tools (если у вас нет Visual Studio)
+4. Скачайте [json.hpp](https://github.com/nlohmann/json/blob/develop/single_include/nlohmann/json.hpp) и поместите в папку прокта
+5. В командной строке из папки репозитория выполните:
+
+```
+   mkdir build
+   cd build
+   cmake ..
+   cmake --build . --config Release
+```
+
+6. Готовый .exe будет в папке build/Release
 
 ## Примечания
 
