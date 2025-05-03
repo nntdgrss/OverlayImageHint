@@ -88,7 +88,7 @@ namespace OverlayImageHint
             SetWindowLong(this.Handle, GWL_EXSTYLE, exStyle);
         }
 
-        private void KeyboardHook_KeyDown(object sender, KeyEventArgs e)
+        private void KeyboardHook_KeyDown(object? sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.F8 && !isOverlayVisible)
             {
@@ -97,7 +97,7 @@ namespace OverlayImageHint
             }
         }
 
-        private void KeyboardHook_KeyUp(object sender, KeyEventArgs e)
+        private void KeyboardHook_KeyUp(object? sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.F8 && isOverlayVisible)
             {
@@ -146,11 +146,11 @@ namespace OverlayImageHint
         private static extern int CallNextHookEx(IntPtr hhk, int nCode, int wParam, ref KeyboardHookStruct lParam);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern IntPtr GetModuleHandle(string lpModuleName);
+        private static extern IntPtr GetModuleHandle(string? lpModuleName);
 
         // События клавиатуры
-        public event KeyEventHandler KeyDown;
-        public event KeyEventHandler KeyUp;
+        public event KeyEventHandler? KeyDown;
+        public event KeyEventHandler? KeyUp;
 
         // Хук и процедура обработки
         private IntPtr hookId = IntPtr.Zero;
