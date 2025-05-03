@@ -2,9 +2,19 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.IO;
+using System.Diagnostics;
 
 namespace OverlayImageHint
 {
+    public class Settings
+    {
+        public string? image_name { get; set; } = "hint.png";
+        public int image_transparency { get; set; } = 90;
+        public Keys key_for_show { get; set; } = Keys.F8;
+    }
+
     static class Program
     {
         [STAThread]
@@ -21,6 +31,8 @@ namespace OverlayImageHint
         private PictureBox pictureBox;
         private GlobalKeyboardHook keyboardHook;
         private bool isOverlayVisible = false;
+        private Settings settings;
+        private NotifyIcon trayIcon;
 
         // Импорт Win32 API для создания окна поверх всех других окон
         [DllImport("user32.dll", SetLastError = true)]
@@ -36,6 +48,9 @@ namespace OverlayImageHint
 
         public OverlayForm()
         {
+            // Загружаем настройки
+            LoadSettings();
+
             // Настройка основной формы
             this.FormBorderStyle = FormBorderStyle.None;
             this.ShowInTaskbar = false;
@@ -43,7 +58,7 @@ namespace OverlayImageHint
             this.WindowState = FormWindowState.Maximized;
             this.BackColor = Color.Black;
             this.TransparencyKey = Color.Black;
-            this.Opacity = 0.7;
+            this.Opacity = settings.image_transparency / 100.0;
 
             // Создание PictureBox для отображения изображения
             pictureBox = new PictureBox
@@ -55,8 +70,8 @@ namespace OverlayImageHint
 
             try
             {
-                // Загрузка изображения из файла (замените путь на ваш)
-                pictureBox.Image = Image.FromFile("hint.png");
+                // Загрузка изображения из файла
+                pictureBox.Image = Image.FromFile(settings.image_name);
             }
             catch (Exception ex)
             {
@@ -66,6 +81,9 @@ namespace OverlayImageHint
             }
 
             this.Controls.Add(pictureBox);
+
+            // Настройка значка в трее
+            SetupTrayIcon();
 
             // Инициализация и настройка глобального перехватчика клавиатуры
             keyboardHook = new GlobalKeyboardHook();
@@ -80,6 +98,103 @@ namespace OverlayImageHint
             SetClickThrough();
         }
 
+        private void LoadSettings()
+        {
+            string settingsPath = "settings.json";
+            
+            // Создаем настройки по умолчанию
+            settings = new Settings();
+            
+            // Если файл настроек существует, загружаем его
+            if (File.Exists(settingsPath))
+            {
+                try
+                {
+                    string jsonString = File.ReadAllText(settingsPath);
+                    settings = JsonSerializer.Deserialize<Settings>(jsonString) ?? new Settings();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка загрузки настроек: {ex.Message}\nБудут использованы настройки по умолчанию.", 
+                        "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            else
+            {
+                // Создаем файл с настройками по умолчанию
+                SaveSettings();
+            }
+        }
+
+        private void SaveSettings()
+        {
+            try
+            {
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                string jsonString = JsonSerializer.Serialize(settings, options);
+                File.WriteAllText("settings.json", jsonString);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка сохранения настроек: {ex.Message}", "Ошибка", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void SetupTrayIcon()
+        {
+            // Создаем меню для иконки в трее
+            ContextMenuStrip trayMenu = new ContextMenuStrip();
+            
+            // Добавляем пункт "Открыть GitHub"
+            ToolStripMenuItem openGitHubItem = new ToolStripMenuItem("Открыть GitHub");
+            openGitHubItem.Click += (sender, e) => 
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "https://github.com/nntdgrss/OverlayImageHint",
+                    UseShellExecute = true
+                });
+            };
+            trayMenu.Items.Add(openGitHubItem);
+            
+            // Добавляем разделитель
+            trayMenu.Items.Add(new ToolStripSeparator());
+            
+            // Добавляем пункт "Завершить работу"
+            ToolStripMenuItem exitItem = new ToolStripMenuItem("Завершить работу");
+            exitItem.Click += (sender, e) => Application.Exit();
+            trayMenu.Items.Add(exitItem);
+            
+            // Создаем иконку в трее
+            trayIcon = new NotifyIcon
+            {
+                Text = "Оверлей подсказки",
+                Visible = true,
+                ContextMenuStrip = trayMenu
+            };
+            
+            // Пытаемся загрузить иконку из ресурсов или файла
+            try
+            {
+                // Проверяем наличие иконки в ресурсах
+                if (File.Exists("icon.ico"))
+                {
+                    trayIcon.Icon = new Icon("icon.ico");
+                }
+                else
+                {
+                    // Используем стандартную иконку
+                    trayIcon.Icon = SystemIcons.Application;
+                }
+            }
+            catch
+            {
+                // В случае ошибки используем стандартную иконку
+                trayIcon.Icon = SystemIcons.Application;
+            }
+        }
+
         private void SetClickThrough()
         {
             // Делаем окно прозрачным для кликов
@@ -90,7 +205,7 @@ namespace OverlayImageHint
 
         private void KeyboardHook_KeyDown(object? sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.F8 && !isOverlayVisible)
+            if (e.KeyCode == settings.key_for_show && !isOverlayVisible)
             {
                 this.Visible = true;
                 isOverlayVisible = true;
@@ -99,7 +214,7 @@ namespace OverlayImageHint
 
         private void KeyboardHook_KeyUp(object? sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.F8 && isOverlayVisible)
+            if (e.KeyCode == settings.key_for_show && isOverlayVisible)
             {
                 this.Visible = false;
                 isOverlayVisible = false;
@@ -109,6 +224,7 @@ namespace OverlayImageHint
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             keyboardHook.Unhook();
+            trayIcon.Dispose();
             base.OnFormClosed(e);
         }
     }
