@@ -1,0 +1,6 @@
+#pragma code_page(65001)
+
+#include <windows.h>      // чтобы ICON и другие типы были определены
+#include "resource.h"
+
+IDI_ICON1 ICON "icon.ico"

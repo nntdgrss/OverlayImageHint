@@ -14,9 +14,12 @@
 #include <memory>
 #include <thread>
 #include <map>
+#include "resource.h"  // Добавляем заголовок ресурсов
 
 // Для работы с JSON используем header-only библиотеку
 #include "json.hpp"
+
+ULONG_PTR g_gdiplusToken;
 
 // Для использования в коде
 using json = nlohmann::json;
@@ -40,6 +43,7 @@ NOTIFYICONDATA g_notifyIconData = {};
 bool g_overlayVisible = false;
 HICON g_hIcon = NULL;
 std::unique_ptr<Bitmap> g_pBitmap;
+HINSTANCE g_hInstance = NULL;  // Сохраняем экземпляр приложения
 
 // Настройки приложения
 struct Settings {
@@ -151,9 +155,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 
                 HMENU hMenu = CreatePopupMenu();
                 if (hMenu) {
-                    InsertMenu(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_OPEN_GITHUB, L"Open GitHub");
+                    InsertMenu(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_OPEN_GITHUB, L"Открыть GitHub");
                     InsertMenu(hMenu, -1, MF_BYPOSITION | MF_SEPARATOR, 0, NULL);
-                    InsertMenu(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_EXIT, L"Close");
+                    InsertMenu(hMenu, -1, MF_BYPOSITION | MF_STRING, ID_TRAY_EXIT, L"Завершить работу");
                     
                     // Необходимо, чтобы меню исчезало при клике вне меню
                     SetForegroundWindow(hWnd);
@@ -193,6 +197,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 DestroyIcon(g_hIcon);
                 g_hIcon = NULL;
             }
+
+            GdiplusShutdown(g_gdiplusToken);
             
             // Освобождаем изображение
             g_pBitmap.reset();
@@ -223,10 +229,12 @@ bool LoadImageFromFile(const std::wstring& filePath) {
 
 // Точка входа в программу
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    // Сохраняем экземпляр приложения
+    g_hInstance = hInstance;
+    
     // Инициализация GDI+
     GdiplusStartupInput gdiplusStartupInput;
-    ULONG_PTR gdiplusToken;
-    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+    GdiplusStartup(&g_gdiplusToken, &gdiplusStartupInput, NULL);
     
     // Загружаем настройки
     LoadSettings();
@@ -242,7 +250,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wcex.style = CS_HREDRAW | CS_VREDRAW;
     wcex.lpfnWndProc = WndProc;
     wcex.hInstance = hInstance;
-    wcex.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1));  // Загружаем иконку из ресурсов
     wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.lpszClassName = L"OverlayImageHintClass";
@@ -274,14 +282,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // Устанавливаем прозрачность окна
     SetLayeredWindowAttributes(g_hwnd, RGB(0, 0, 0), (BYTE)(255 * g_settings.transparency / 100.0), LWA_ALPHA);
     
-    // Загружаем иконку
-    g_hIcon = NULL;
-    if (GetFileAttributes(L"icon.ico") != INVALID_FILE_ATTRIBUTES) {
-        g_hIcon = (HICON)LoadImage(NULL, L"icon.ico", IMAGE_ICON, 16, 16, LR_LOADFROMFILE);
-    }
+    // Загружаем иконку из ресурсов
+    g_hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1));
     
     if (!g_hIcon) {
-        // Используем стандартную иконку, если своя не найдена
+        // Используем стандартную иконку, если иконка из ресурсов недоступна
         g_hIcon = LoadIcon(NULL, IDI_APPLICATION);
     }
     
